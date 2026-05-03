@@ -4,6 +4,8 @@ project(fcitx5-pobox VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 find_package(ECM REQUIRED)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH} ${CMAKE_MODULE_PATH})
 
@@ -12,6 +14,7 @@ include(GNUInstallDirs)
 
 add_fcitx5_addon(fcitx5-pobox
   src/pobox_engine.cc
+  src/romaji_kana.cc
   src/factory.cc
 )
 

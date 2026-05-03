@@ -1,5 +1,6 @@
 #pragma once
 
+#include "romaji_kana.h"
 #include <fcitx/addonfactory.h>
 #include <fcitx/inputcontextproperty.h>
 #include <fcitx/inputmethodengine.h>
@@ -11,7 +12,8 @@ namespace fcitx {
 struct PoboxState : public InputContextProperty {
   enum class Mode { Idle, Composing };
   Mode mode = Mode::Idle;
-  std::string buffer;
+  std::string reading;   // 確定済みひらがな
+  RomajiKana romaji_kana;
 };
 
 class PoboxEngine : public InputMethodEngineV3 {
