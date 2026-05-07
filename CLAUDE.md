@@ -71,18 +71,18 @@ sudo apt install -y \
 # 想定ディレクトリ構成
 
 ```
-fcitx5-pobox/
+fcitx5-propico/
 ├─ CMakeLists.txt
-├─ pobox.proto           ← pobox-neo からコピー or submodule
+├─ pobox.proto             ← pobox-neo からコピー or submodule
 ├─ src/
-│  ├─ pobox_engine.h      ← InputMethodEngineV3 継承
-│  ├─ pobox_engine.cc     ← keyEvent 実装
-│  ├─ factory.cc          ← FCITX_ADDON_FACTORY マクロ
-│  ├─ romaji_kana.h/.cc   ← 段階 2 以降
-│  └─ grpc_client.h/.cc   ← 段階 3 以降
+│  ├─ propico_engine.h     ← InputMethodEngineV3 継承
+│  ├─ propico_engine.cc    ← keyEvent 実装
+│  ├─ factory.cc           ← FCITX_ADDON_FACTORY マクロ
+│  ├─ romaji_kana.h/.cc    ← 段階 2 以降
+│  └─ grpc_client.h/.cc    ← 段階 3 以降
 └─ data/
-   ├─ pobox-addon.conf    ← fcitx5 へのプラグイン登録
-   └─ pobox.conf          ← IME メタデータ（名前・言語・アイコン）
+   ├─ propico-addon.conf   ← fcitx5 へのプラグイン登録
+   └─ propico.conf         ← IME メタデータ（名前・言語・アイコン）
 ```
 
 # コーディング規約

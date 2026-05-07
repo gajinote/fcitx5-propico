@@ -9,16 +9,16 @@
 
 namespace fcitx {
 
-struct PoboxState : public InputContextProperty {
+struct PropicoState : public InputContextProperty {
   enum class Mode { Idle, Composing };
   Mode mode = Mode::Idle;
   std::string reading;   // 確定済みひらがな
   RomajiKana romaji_kana;
 };
 
-class PoboxEngine : public InputMethodEngineV3 {
+class PropicoEngine : public InputMethodEngineV3 {
 public:
-  explicit PoboxEngine(Instance *instance);
+  explicit PropicoEngine(Instance *instance);
 
   void keyEvent(const InputMethodEntry &entry,
                 KeyEvent &event) override;
@@ -29,12 +29,12 @@ public:
 
 private:
   Instance *instance_;
-  FactoryFor<PoboxState> state_factory_;
+  FactoryFor<PropicoState> state_factory_;
 
-  void updatePreedit(InputContext *ic, PoboxState &state);
+  void updatePreedit(InputContext *ic, PropicoState &state);
 };
 
-class PoboxEngineFactory : public AddonFactory {
+class PropicoEngineFactory : public AddonFactory {
 public:
   AddonInstance *create(AddonManager *manager) override;
 };

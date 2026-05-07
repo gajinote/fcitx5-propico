@@ -1,4 +1,4 @@
-#include "pobox_engine.h"
+#include "propico_engine.h"
 #include <fcitx-utils/keysymgen.h>
 #include <fcitx-utils/textformatflags.h>
 #include <fcitx/inputcontext.h>
@@ -19,27 +19,27 @@ void popLastUtf8Char(std::string &s) {
 
 } // namespace
 
-PoboxEngine::PoboxEngine(Instance *instance)
+PropicoEngine::PropicoEngine(Instance *instance)
     : instance_(instance),
-      state_factory_([](InputContext &) { return new PoboxState; }) {
-  instance_->inputContextManager().registerProperty("poboxState",
+      state_factory_([](InputContext &) { return new PropicoState; }) {
+  instance_->inputContextManager().registerProperty("propicoState",
                                                     &state_factory_);
 }
 
-void PoboxEngine::activate(const InputMethodEntry &,
-                           InputContextEvent &) {}
+void PropicoEngine::activate(const InputMethodEntry &,
+                             InputContextEvent &) {}
 
-void PoboxEngine::deactivate(const InputMethodEntry &,
-                             InputContextEvent &event) {
+void PropicoEngine::deactivate(const InputMethodEntry &,
+                               InputContextEvent &event) {
   auto *ic = event.inputContext();
   auto *state = ic->propertyFor(&state_factory_);
   state->reading.clear();
   state->romaji_kana.reset();
-  state->mode = PoboxState::Mode::Idle;
+  state->mode = PropicoState::Mode::Idle;
   updatePreedit(ic, *state);
 }
 
-void PoboxEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
+void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
   if (event.isRelease()) return;
 
   auto *ic = event.inputContext();
@@ -55,7 +55,7 @@ void PoboxEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
       ic->commitString(commit);
       state->reading.clear();
       state->romaji_kana.reset();
-      state->mode = PoboxState::Mode::Idle;
+      state->mode = PropicoState::Mode::Idle;
       updatePreedit(ic, *state);
       event.filterAndAccept();
     }
@@ -66,7 +66,7 @@ void PoboxEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
     if (!state->reading.empty() || !state->romaji_kana.pending().empty()) {
       state->reading.clear();
       state->romaji_kana.reset();
-      state->mode = PoboxState::Mode::Idle;
+      state->mode = PropicoState::Mode::Idle;
       updatePreedit(ic, *state);
       event.filterAndAccept();
     }
@@ -77,14 +77,14 @@ void PoboxEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
     if (!state->romaji_kana.pending().empty()) {
       state->romaji_kana.backspace();
       if (state->reading.empty() && state->romaji_kana.pending().empty()) {
-        state->mode = PoboxState::Mode::Idle;
+        state->mode = PropicoState::Mode::Idle;
       }
       updatePreedit(ic, *state);
       event.filterAndAccept();
     } else if (!state->reading.empty()) {
       popLastUtf8Char(state->reading);
       if (state->reading.empty()) {
-        state->mode = PoboxState::Mode::Idle;
+        state->mode = PropicoState::Mode::Idle;
       }
       updatePreedit(ic, *state);
       event.filterAndAccept();
@@ -95,14 +95,14 @@ void PoboxEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
   if (key.isSimple()) {
     const char c = static_cast<char>(key.sym() & 0x7F);
     state->reading += state->romaji_kana.feed(c);
-    state->mode = PoboxState::Mode::Composing;
+    state->mode = PropicoState::Mode::Composing;
     updatePreedit(ic, *state);
     event.filterAndAccept();
     return;
   }
 }
 
-void PoboxEngine::updatePreedit(InputContext *ic, PoboxState &state) {
+void PropicoEngine::updatePreedit(InputContext *ic, PropicoState &state) {
   Text preedit;
   if (!state.reading.empty()) {
     preedit.append(state.reading, TextFormatFlag::Underline);

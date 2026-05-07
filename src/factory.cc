@@ -1,12 +1,12 @@
-#include "pobox_engine.h"
+#include "propico_engine.h"
 #include <fcitx/addonmanager.h>
 
 namespace fcitx {
 
-AddonInstance *PoboxEngineFactory::create(AddonManager *manager) {
-  return new PoboxEngine(manager->instance());
+AddonInstance *PropicoEngineFactory::create(AddonManager *manager) {
+  return new PropicoEngine(manager->instance());
 }
 
 } // namespace fcitx
 
-FCITX_ADDON_FACTORY(fcitx::PoboxEngineFactory)
+FCITX_ADDON_FACTORY(fcitx::PropicoEngineFactory)
