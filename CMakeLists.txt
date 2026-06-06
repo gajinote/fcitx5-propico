@@ -10,16 +10,39 @@ find_package(ECM REQUIRED)
 set(CMAKE_MODULE_PATH ${ECM_MODULE_PATH} ${CMAKE_MODULE_PATH})
 
 find_package(Fcitx5Core REQUIRED)
+find_package(Protobuf REQUIRED)
+find_package(gRPC REQUIRED)
+
 include(GNUInstallDirs)
 
 add_fcitx5_addon(fcitx5-propico
   src/propico_engine.cc
   src/romaji_kana.cc
   src/factory.cc
+  src/grpc_client.cc
 )
 
-target_include_directories(fcitx5-propico PRIVATE src)
-target_link_libraries(fcitx5-propico PRIVATE Fcitx5::Core)
+protobuf_generate(
+  TARGET fcitx5-propico
+  LANGUAGE cpp
+  PROTOS "${CMAKE_CURRENT_SOURCE_DIR}/propico.proto"
+)
+
+protobuf_generate(
+  TARGET fcitx5-propico
+  LANGUAGE grpc
+  GENERATE_EXTENSIONS .grpc.pb.h .grpc.pb.cc
+  PLUGIN "protoc-gen-grpc=$<TARGET_FILE:gRPC::grpc_cpp_plugin>"
+  PROTOS "${CMAKE_CURRENT_SOURCE_DIR}/propico.proto"
+)
+
+set_target_properties(fcitx5-propico PROPERTIES PREFIX "")
+
+target_include_directories(fcitx5-propico PRIVATE src "${CMAKE_CURRENT_BINARY_DIR}")
+target_link_libraries(fcitx5-propico PRIVATE
+  Fcitx5::Core
+  protobuf::libprotobuf
+  gRPC::grpc++)
 
 install(TARGETS fcitx5-propico
   DESTINATION "${FCITX_INSTALL_ADDONDIR}")
