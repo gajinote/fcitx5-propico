@@ -1,54 +1,53 @@
-# fcitx5-pobox 実装計画
+# fcitx5-propico 実装計画
 
 ## 前提
 
-- バックエンド: [pobox-neo](../pobox-neo)（全フェーズ完了済み ✅）
-- proto 正本: `pobox-neo/pobox.proto`（本リポジトリへはコピーで参照）
+- バックエンド: [propico](../propico)（変換エンジン・辞書・学習・同期）
+- proto 正本: `propico/propico.proto`（本リポジトリへはコピーで参照）
 - 実装言語: C++20
 - ビルドシステム: CMake + extra-cmake-modules
 
 ---
 
-## 現状 (2026-04-29)
+## 現状 (2026-06-19)
 
 | フェーズ | 内容 | 状態 |
 |---|---|---|
-| Stage 1 | Echo エンジン（fcitx5 登録・preedit・commit） | 🔲 未着手 |
-| Stage 2 | ローマ字→ひらがな変換（ローカル） | 🔲 未着手 |
-| Stage 3 | Space → gRPC Search + 候補ウィンドウ | 🔲 未着手 |
-| Stage 4 | 候補選択 → commit + Learn RPC | 🔲 未着手 |
+| Stage 1 | Echo エンジン（fcitx5 登録・preedit・commit） | ✅ 完了 |
+| Stage 2 | ローマ字→ひらがな変換（ローカル） | ✅ 完了 |
+| Stage 3 | Space → gRPC Search + 候補ウィンドウ | ✅ 完了 |
+| Stage 4 | 候補選択 → commit + Learn RPC | ✅ 完了 |
 | Stage 5 | Sync RPC（オプション） | 🔲 未着手 |
 
 ---
 
-## Stage 1 — Echo エンジン
+## Stage 1 — Echo エンジン ✅
 
-**目標:** pobox-neo に接続しない。fcitx5 プラグイン登録・キーフック・preedit 表示・Enter でコミットが動くこと。
+**目標:** propico に接続しない。fcitx5 プラグイン登録・キーフック・preedit 表示・Enter でコミットが動くこと。
 
 ### 成果物
 
 | ファイル | 内容 |
 |---|---|
 | `CMakeLists.txt` | fcitx5 / ECM パッケージ解決、プラグイン共有ライブラリとして出力 |
-| `src/pobox_engine.h` | `PoboxEngine`（InputMethodEngineV3）+ `PoboxState`（InputContextProperty）宣言 |
-| `src/pobox_engine.cc` | `keyEvent()` 実装: 英数字バッファ追記、Enter でコミット、Escape でクリア |
-| `src/factory.cc` | `FCITX_ADDON_FACTORY(PoboxEngine)` マクロ |
-| `data/pobox-addon.conf` | アドオン登録（Category = InputMethod, Library = fcitx5-pobox） |
-| `data/pobox.conf` | IME メタデータ（Name = PoBox Neo, LangCode = ja） |
+| `src/propico_engine.h` | `PropicoEngine`（InputMethodEngineV3）+ `PropicoState`（InputContextProperty）宣言 |
+| `src/propico_engine.cc` | `keyEvent()` 実装: 英数字バッファ追記、Enter でコミット、Escape でクリア |
+| `src/factory.cc` | `FCITX_ADDON_FACTORY(PropicoEngineFactory)` マクロ |
+| `data/propico-addon.conf` | アドオン登録（Category = InputMethod, Library = fcitx5-propico） |
+| `data/propico.conf` | IME メタデータ（Name = Propico, LangCode = ja） |
 
 ### 確認ポイント
 
 ```bash
-# プラグインを fcitx5 に読み込ませてテキストエディタで動作確認
 # 1. アルファベットを打つと preedit に表示される
 # 2. Enter で preedit がコミットされる
 # 3. Escape で preedit がクリアされる
-# 4. fcitx5-diagnose で "pobox" がリストに現れる
+# 4. fcitx5-diagnose で "propico" がリストに現れる
 ```
 
 ---
 
-## Stage 2 — ローマ字→ひらがな変換
+## Stage 2 — ローマ字→ひらがな変換 ✅
 
 **目標:** アルファベット入力が preedit にひらがなで表示される。gRPC は不要。
 
@@ -63,14 +62,10 @@
 ```cpp
 class RomajiKana {
 public:
-    // c を追加し、確定したひらがなを返す。未確定残留は pending() で取得
-    std::string feed(char c);
-    // 末尾 1 文字削除（BackSpace 対応）
-    void backspace();
-    // 現在の未確定ローマ字（preedit の末尾に表示する）
-    std::string pending() const;
-    // 全バッファクリア
-    void reset();
+    std::string feed(char c);    // c を追加し、確定したひらがなを返す
+    void backspace();            // 末尾 1 文字削除（BackSpace 対応）
+    std::string pending() const; // 現在の未確定ローマ字
+    void reset();                // 全バッファクリア
 };
 ```
 
@@ -85,53 +80,19 @@ public:
 | `tt` + 子音 | っ + 子音 | 促音: `tte` → って |
 | `xa` / `la` | ぁ | 小文字 |
 
-### 確認ポイント
-
-```
-"aiueo"  → あいうえお
-"kanji"  → かんじ
-"nippon" → にっぽん
-"tsu"    → つ
-"nn"     → ん
-"nk"     → んk（n + 子音前で ん確定）
-```
-
 ---
 
-## Stage 3 — gRPC Search + 候補ウィンドウ
+## Stage 3 — gRPC Search + 候補ウィンドウ ✅
 
-**目標:** Space キーで pobox-neo に検索を投げ、候補ウィンドウに結果を表示する。
-
-### 前提条件
-
-- pobox-neo サーバーが `localhost:50051` で動いていること
-- `pobox.proto` を本リポジトリにコピー済み
+**目標:** Space キーで propico に検索を投げ、候補ウィンドウに結果を表示する。
 
 ### 成果物
 
 | ファイル | 内容 |
 |---|---|
-| `pobox.proto` | pobox-neo からコピー（Search / Learn / Sync 定義） |
-| `src/grpc_client.h/.cc` | 非同期 gRPC ラッパー（CompletionQueue スレッド） |
-| `src/pobox_engine.cc` | Space キー処理: `searchAsync()` 発行 → `onSearchResult()` で候補更新 |
-
-### CMakeLists.txt 追加要素
-
-```cmake
-find_package(Protobuf REQUIRED)
-find_package(gRPC REQUIRED)
-
-# proto コンパイル
-get_filename_component(PROTO_FILE "pobox.proto" ABSOLUTE)
-protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILE})
-grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_FILE})
-
-target_sources(fcitx5-pobox PRIVATE
-    ${PROTO_SRCS} ${GRPC_SRCS}
-    src/grpc_client.cc)
-target_link_libraries(fcitx5-pobox PRIVATE
-    protobuf::libprotobuf gRPC::grpc++)
-```
+| `propico.proto` | propico からコピー（Search / Learn / Sync 定義） |
+| `src/grpc_client.h/.cc` | 非同期 gRPC ラッパー（detach スレッド + EventDispatcher） |
+| `src/propico_engine.cc` | Space キー処理: `searchAsync()` 発行 → コールバックで候補更新 |
 
 ### 非同期フロー
 
@@ -139,59 +100,57 @@ target_link_libraries(fcitx5-pobox PRIVATE
 Space キー
   │
   ├── state.mode = Selecting
-  ├── updatePreedit() でスピナー表示（オプション）
+  ├── updatePreedit()
   └── grpc_client_->searchAsync(state.reading, [ic](resp) {
+            // GrpcClient の dispatcher_->schedule() により
             // fcitx5 メインスレッドで呼ばれる
             state.candidates = resp.candidates();
             showCandidates(ic, state);
       });
 ```
 
-### 確認ポイント
+### 注意: 二重スケジューリングを避ける
 
-```
-1. "ai" + Space → pobox-neo に prefix="あい" で Search RPC が飛ぶ
-2. 候補ウィンドウに「愛」「挨拶」などが並ぶ
-3. サーバー未起動でも入力がフリーズしない（タイムアウト後に COMPOSING へ戻る）
-```
+GrpcClient 内の `dispatcher_->schedule()` がすでにメインスレッドへ戻す。
+エンジン側コールバックで `scheduleWithContext()` を重ねると候補が表示前にクリアされる。
 
 ---
 
-## Stage 4 — 候補選択 + Learn RPC
+## Stage 4 — 候補選択 + Learn RPC ✅
 
 **目標:** 候補ウィンドウで選択 → コミット + Learn RPC で学習が機能する。
 
-### keyEvent 追加ハンドリング（SELECTING 状態）
+### keyEvent ハンドリング（SELECTING 状態）
 
 | キー | アクション |
 |---|---|
 | `1`〜`9` | candidates[n-1] を選択 → commit + learnAsync |
-| `Tab` / `↓` | 次候補にフォーカス移動 |
-| `Shift+Tab` / `↑` | 前候補にフォーカス移動 |
-| `Enter` | フォーカス中の候補を選択 |
+| `↓` / `→` | 次候補にカーソル移動 |
+| `↑` / `←` | 前候補にカーソル移動 |
+| `Enter` | カーソル中の候補を選択 |
 | `Space` | 次ページ |
 | `Escape` | COMPOSING に戻る（候補を閉じる） |
 
-### commitCandidate の処理
+### commitCandidateAt の処理
 
 ```cpp
-void PoboxEngine::commitCandidate(fcitx::InputContext* ic,
-                                   PoboxState& state, int index) {
-    const auto& c = state.candidates[index];
-    ic->commitString(c.text());
-    grpc_client_->learnAsync(c.id(), state.reading);  // 非同期（戻りは無視可）
-    state = PoboxState{};  // リセット
-    updatePreedit(ic, state);
+void PropicoEngine::commitCandidateAt(InputContext *ic, PropicoState &state, int idx) {
+    onCandidateSelected(ic, state.candidates[idx].text, state.candidates[idx].id);
+}
+
+void PropicoEngine::onCandidateSelected(InputContext *ic,
+                                         const std::string &text,
+                                         const std::string &id) {
+    ic->commitString(text);
+    grpc_client_->learnAsync(id, state->reading);
+    // state リセット
 }
 ```
 
-### 確認ポイント
+### CommonCandidateList を使用
 
-```
-1. 候補選択 → テキストがコミットされる
-2. 同じプレフィックスで再検索すると、選択した候補のスコアが上昇する
-3. pobox-neo サーバーを再起動しても学習が引き継がれる（SQLite 永続化）
-```
+`DisplayOnlyCandidateList` ではなく `CommonCandidateList` + `PropicoCandidateWord` を使い、
+カーソル移動・クリック選択に対応する。
 
 ---
 
@@ -202,14 +161,14 @@ void PoboxEngine::commitCandidate(fcitx::InputContext* ic,
 ### 実装内容
 
 - `GrpcClient::syncAsync()` に last_sync_timestamp を渡す
-- 設定ファイル（`~/.config/fcitx5/pobox.conf`）に `last_sync_timestamp` を保存
+- 設定ファイル（`~/.config/fcitx5/propico.conf`）に `last_sync_timestamp` を保存
 - 候補コミット後 or 一定間隔で差分 Sync を発火
 
 ### 確認ポイント
 
 ```
-1. 2台のマシンが同じ pobox-neo サーバーに接続している状態で
-   マシンA で "あい:愛" を3回選択
+1. 2台のマシンが同じ propico サーバーに接続している状態で
+   マシンA で "あい:愛" を複数回選択
    マシンB で sync → "愛" のスコアが上昇している
 ```
 
@@ -241,32 +200,31 @@ sudo apt install -y \
 
 ```
 Stage 1 ──▶ Stage 2 ──▶ Stage 3 ──▶ Stage 4 ──▶ Stage 5
+  ✅           ✅           ✅           ✅          🔲
 ```
-
-各 Stage は前の Stage の完了を前提とする。
-Stage 3 は pobox-neo サーバーが起動していること（別プロセス）が必要。
 
 ---
 
 ## 完了基準チェックリスト
 
-### Stage 1
-- [ ] `cmake --build build` が警告 0 でビルドできる
-- [ ] fcitx5 を再起動すると pobox プラグインがロードされる
-- [ ] テキストエディタで英数字入力 → preedit 表示 → Enter でコミット
+### Stage 1 ✅
+- [x] `cmake --build build` が警告 0 でビルドできる
+- [x] fcitx5 を再起動すると propico プラグインがロードされる
+- [x] テキストエディタで英数字入力 → preedit 表示 → Enter でコミット
 
-### Stage 2
-- [ ] ローマ字を打つと preedit がひらがなに変わる
-- [ ] `nippon` → `にっぽん` が正しく変換される
-- [ ] BackSpace で1文字削除できる
+### Stage 2 ✅
+- [x] ローマ字を打つと preedit がひらがなに変わる
+- [x] `nippon` → `にっぽん` が正しく変換される
+- [x] BackSpace で1文字削除できる
 
-### Stage 3
-- [ ] Space で候補ウィンドウが開く
-- [ ] サーバー未起動でも入力がフリーズしない
+### Stage 3 ✅
+- [x] Space で候補ウィンドウが開く
+- [x] サーバー未起動でも入力がフリーズしない（タイムアウト後に COMPOSING へ戻る）
 
-### Stage 4
-- [ ] 数字キーで候補を選択してコミットできる
-- [ ] 再検索で選択候補のスコアが上昇している
+### Stage 4 ✅
+- [x] 数字キーで候補を選択してコミットできる
+- [x] ↑↓ カーソルキーで候補を移動できる
+- [x] Learn RPC がサーバーに届く
 
 ### Stage 5
-- [ ] 別端末で同じ pobox-neo サーバーに接続した場合に学習が共有される
+- [ ] 別端末で同じ propico サーバーに接続した場合に学習が共有される

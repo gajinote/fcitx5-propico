@@ -1,23 +1,23 @@
 # プロジェクトの目的
 
 * fcitx5 プラグインとして Linux デスクトップ上で日本語入力を提供する
-* バックエンドとして pobox-neo（別リポジトリの gRPC サーバー）を利用する
+* バックエンドとして propico（別リポジトリの gRPC サーバー）を利用する
 * POBox の「軽量フロントエンド × サーバー型変換エンジン」思想を fcitx5 の Input Method Framework 上で実現する
 
-# 前提プロジェクト: pobox-neo
+# 前提プロジェクト: propico
 
 * 変換エンジン・辞書・学習・同期を担当するサーバー実装（別リポジトリ）
-* gRPC プロトコル定義（`pobox.proto`）は pobox-neo 側が**正本**
-* 本プロジェクトは proto を submodule またはコピーで参照し、**クライアント**として振る舞う
+* gRPC プロトコル定義（`propico.proto`）は propico 側が**正本**
+* 本プロジェクトは proto をコピーで参照し、**クライアント**として振る舞う
 
 # 大きな設計方針
 
 ## サーバー型分離を厳守する
 
-* UI 層（本プロジェクト = fcitx5 プラグイン）と エンジン層（pobox-neo サーバー）を分離
+* UI 層（本プロジェクト = fcitx5 プラグイン）と エンジン層（propico サーバー）を分離
 * プラグイン側の責務: キーイベント処理・状態管理・ローマ字かな変換・候補ウィンドウ表示
 * サーバー側の責務: 辞書検索・スコアリング・学習永続化・同期
-* 両者の契約は `pobox.proto` のみ
+* 両者の契約は `propico.proto` のみ
 
 ### 理由
 
@@ -33,19 +33,19 @@
 ## 既存 IME との棲み分け
 
 * mozc や anthy とは同居可能にする（fcitx5 の IM 切替で選べる）
-* ユーザー辞書・学習データは pobox-neo サーバー側に集約
+* ユーザー辞書・学習データは propico サーバー側に集約
 
 # 段階的実装ロードマップ
 
-| 段階 | 実装内容 | 確認ポイント |
-|---|---|---|
-| 1 | Echo エンジン（入力→preedit→Enter commit） | fcitx5 登録・キーフックが動くこと |
-| 2 | ローマ字→ひらがな変換（ローカル） | 日本語が preedit に出ること |
-| 3 | Space キーで pobox-neo に gRPC Search | 候補ウィンドウに予測が並ぶこと |
-| 4 | 候補選択 → commit + Learn RPC | 学習の往復が機能すること |
-| 5 | Sync RPC（オプション） | 他端末連携 |
+| 段階 | 実装内容 | 確認ポイント | 状態 |
+|---|---|---|---|
+| 1 | Echo エンジン（入力→preedit→Enter commit） | fcitx5 登録・キーフックが動くこと | ✅ 完了 |
+| 2 | ローマ字→ひらがな変換（ローカル） | 日本語が preedit に出ること | ✅ 完了 |
+| 3 | Space キーで propico に gRPC Search | 候補ウィンドウに予測が並ぶこと | ✅ 完了 |
+| 4 | 候補選択 → commit + Learn RPC | 学習の往復が機能すること | ✅ 完了 |
+| 5 | Sync RPC（オプション） | 他端末連携 | 🔲 未着手 |
 
-段階 1 は **pobox-neo に接続しない**。fcitx5 API 単体の統合確認に専念する。
+段階 1 は **propico に接続しない**。fcitx5 API 単体の統合確認に専念する。
 
 # 技術スタック
 
@@ -73,7 +73,7 @@ sudo apt install -y \
 ```
 fcitx5-propico/
 ├─ CMakeLists.txt
-├─ pobox.proto             ← pobox-neo からコピー or submodule
+├─ propico.proto            ← propico からコピー
 ├─ src/
 │  ├─ propico_engine.h     ← InputMethodEngineV3 継承
 │  ├─ propico_engine.cc    ← keyEvent 実装
@@ -95,6 +95,6 @@ fcitx5-propico/
 
 # 参考
 
-* pobox-neo リポジトリ — 変換エンジン・proto 定義の正本
+* propico リポジトリ — 変換エンジン・proto 定義の正本
 * [fcitx5 開発ドキュメント](https://github.com/fcitx/fcitx5) — API リファレンス
 * POBox 原典（増井俊之, 1996）— 設計思想の源流
