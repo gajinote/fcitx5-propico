@@ -84,7 +84,31 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
             return;
         }
         if (key.check(FcitxKey_Return) && !state->candidates.empty()) {
-            commitCandidateAt(ic, *state, 0);
+            auto cl = ic->inputPanel().candidateList();
+            int idx = (cl && cl->cursorIndex() >= 0) ? cl->cursorIndex() : 0;
+            commitCandidateAt(ic, *state, idx);
+            event.filterAndAccept();
+            return;
+        }
+        if (key.check(FcitxKey_Up) || key.check(FcitxKey_Left)) {
+            auto cl = ic->inputPanel().candidateList();
+            if (cl) {
+                if (auto *cur = cl->toCursorMovable()) {
+                    cur->prevCandidate();
+                    ic->updateUserInterface(UserInterfaceComponent::InputPanel);
+                }
+            }
+            event.filterAndAccept();
+            return;
+        }
+        if (key.check(FcitxKey_Down) || key.check(FcitxKey_Right)) {
+            auto cl = ic->inputPanel().candidateList();
+            if (cl) {
+                if (auto *cur = cl->toCursorMovable()) {
+                    cur->nextCandidate();
+                    ic->updateUserInterface(UserInterfaceComponent::InputPanel);
+                }
+            }
             event.filterAndAccept();
             return;
         }
@@ -243,14 +267,13 @@ void PropicoEngine::updatePreedit(InputContext *ic, PropicoState &state) {
 }
 
 void PropicoEngine::showCandidates(InputContext *ic, PropicoState &state) {
-    auto candidateList = std::make_unique<DisplayOnlyCandidateList>();
-    std::vector<std::string> texts;
-    for (const auto &c : state.candidates) {
-        texts.push_back(c.text);
-    }
-    candidateList->setContent(texts);
+    auto candidateList = std::make_unique<CommonCandidateList>();
     candidateList->setLayoutHint(CandidateLayoutHint::Vertical);
-
+    candidateList->setPageSize(9);
+    for (const auto &c : state.candidates) {
+        candidateList->append<PropicoCandidateWord>(this, c.text, c.id);
+    }
+    candidateList->setCursorIndex(0);
     ic->inputPanel().setCandidateList(std::move(candidateList));
     ic->updateUserInterface(UserInterfaceComponent::InputPanel);
     ic->updatePreedit();
