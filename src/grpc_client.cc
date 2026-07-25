@@ -58,3 +58,29 @@ void GrpcClient::learnAsync(const std::string &candidate_id,
         // 戻り値は無視
     }).detach();
 }
+
+void GrpcClient::syncAsync(
+    int64_t last_sync_timestamp,
+    std::function<void(propico::SyncResponse)> callback) {
+    std::thread([this, last_sync_timestamp, alive = alive_,
+                 cb = std::move(callback)]() {
+        propico::SyncRequest req;
+        req.set_last_sync_timestamp(last_sync_timestamp);
+
+        propico::SyncResponse resp;
+        grpc::ClientContext ctx;
+        ctx.set_deadline(std::chrono::system_clock::now() +
+                         std::chrono::seconds(5));
+
+        grpc::Status status = stub_->Sync(&ctx, req, &resp);
+
+        if (status.ok() && alive->load(std::memory_order_relaxed)) {
+            dispatcher_->schedule(
+                [cb = std::move(cb), resp = std::move(resp), alive]() {
+                    if (alive->load(std::memory_order_relaxed)) {
+                        cb(std::move(resp));
+                    }
+                });
+        }
+    }).detach();
+}

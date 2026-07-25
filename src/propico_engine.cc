@@ -7,10 +7,18 @@
 #include <fcitx/inputpanel.h>
 #include <fcitx/text.h>
 #include <fcitx/userinterface.h>
+#include <cstdlib>
+#include <fstream>
 
 namespace fcitx {
 
 namespace {
+
+std::string syncTimestampPath() {
+    const char *home = std::getenv("HOME");
+    if (!home) return "";
+    return std::string(home) + "/.config/fcitx5/propico_sync_ts";
+}
 
 void popLastUtf8Char(std::string &s) {
     if (s.empty()) return;
@@ -46,6 +54,8 @@ PropicoEngine::PropicoEngine(Instance *instance)
                                                       &state_factory_);
     grpc_client_ = std::make_unique<GrpcClient>(
         "localhost:50051", &instance_->eventDispatcher());
+    loadSyncTimestamp();
+    triggerSync();
 }
 
 PropicoEngine::~PropicoEngine() {
@@ -248,6 +258,7 @@ void PropicoEngine::onCandidateSelected(InputContext *ic,
     state->mode = PropicoState::Mode::Idle;
     clearCandidates(ic, *state);
     updatePreedit(ic, *state);
+    triggerSync();
 }
 
 void PropicoEngine::updatePreedit(InputContext *ic, PropicoState &state) {
@@ -291,6 +302,31 @@ void PropicoEngine::commitCandidateAt(InputContext *ic, PropicoState &state,
     if (idx < 0 || idx >= static_cast<int>(state.candidates.size())) return;
     onCandidateSelected(ic, state.candidates[idx].text,
                         state.candidates[idx].id);
+}
+
+void PropicoEngine::loadSyncTimestamp() {
+    const auto path = syncTimestampPath();
+    if (path.empty()) return;
+    std::ifstream f(path);
+    if (f) f >> sync_timestamp_;
+}
+
+void PropicoEngine::saveSyncTimestamp() const {
+    const auto path = syncTimestampPath();
+    if (path.empty()) return;
+    std::ofstream f(path);
+    if (f) f << sync_timestamp_;
+}
+
+void PropicoEngine::triggerSync() {
+    auto alive = alive_;
+    grpc_client_->syncAsync(
+        sync_timestamp_,
+        [this, alive](propico::SyncResponse resp) {
+            if (!alive->load(std::memory_order_relaxed)) return;
+            sync_timestamp_ = resp.server_timestamp();
+            saveSyncTimestamp();
+        });
 }
 
 } // namespace fcitx

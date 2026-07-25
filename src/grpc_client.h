@@ -15,6 +15,8 @@ public:
     void searchAsync(const std::string &prefix,
                      std::function<void(propico::SearchResponse)> callback);
     void learnAsync(const std::string &candidate_id, const std::string &prefix);
+    void syncAsync(int64_t last_sync_timestamp,
+                   std::function<void(propico::SyncResponse)> callback);
 
 private:
     std::unique_ptr<propico::Propico::Stub> stub_;

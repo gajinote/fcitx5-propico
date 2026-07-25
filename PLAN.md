@@ -17,7 +17,7 @@
 | Stage 2 | ローマ字→ひらがな変換（ローカル） | ✅ 完了 |
 | Stage 3 | Space → gRPC Search + 候補ウィンドウ | ✅ 完了 |
 | Stage 4 | 候補選択 → commit + Learn RPC | ✅ 完了 |
-| Stage 5 | Sync RPC（オプション） | 🔲 未着手 |
+| Stage 5 | Sync RPC（オプション） | ✅ 完了 |
 
 ---
 
@@ -200,7 +200,7 @@ sudo apt install -y \
 
 ```
 Stage 1 ──▶ Stage 2 ──▶ Stage 3 ──▶ Stage 4 ──▶ Stage 5
-  ✅           ✅           ✅           ✅          🔲
+  ✅           ✅           ✅           ✅           ✅
 ```
 
 ---
@@ -226,5 +226,5 @@ Stage 1 ──▶ Stage 2 ──▶ Stage 3 ──▶ Stage 4 ──▶ Stage 5
 - [x] ↑↓ カーソルキーで候補を移動できる
 - [x] Learn RPC がサーバーに届く
 
-### Stage 5
-- [ ] 別端末で同じ propico サーバーに接続した場合に学習が共有される
+### Stage 5 ✅
+- [x] 別端末で同じ propico サーバーに接続した場合に学習が共有される

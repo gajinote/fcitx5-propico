@@ -6,6 +6,7 @@
 #include <fcitx/inputmethodengine.h>
 #include <fcitx/instance.h>
 #include <atomic>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -48,11 +49,15 @@ private:
     FactoryFor<PropicoState> state_factory_;
     std::unique_ptr<GrpcClient> grpc_client_;
     std::shared_ptr<std::atomic<bool>> alive_;
+    int64_t sync_timestamp_ = 0;
 
     void updatePreedit(InputContext *ic, PropicoState &state);
     void showCandidates(InputContext *ic, PropicoState &state);
     void clearCandidates(InputContext *ic, PropicoState &state);
     void commitCandidateAt(InputContext *ic, PropicoState &state, int idx);
+    void triggerSync();
+    void loadSyncTimestamp();
+    void saveSyncTimestamp() const;
 };
 
 class PropicoEngineFactory : public AddonFactory {
