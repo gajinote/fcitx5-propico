@@ -19,7 +19,7 @@ public:
                    std::function<void(propico::SyncResponse)> callback);
 
 private:
-    std::unique_ptr<propico::Propico::Stub> stub_;
+    std::shared_ptr<propico::Propico::Stub> stub_;
     fcitx::EventDispatcher *dispatcher_;
     std::shared_ptr<std::atomic<bool>> alive_;
 };

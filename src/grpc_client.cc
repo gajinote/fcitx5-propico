@@ -18,7 +18,8 @@ GrpcClient::~GrpcClient() {
 void GrpcClient::searchAsync(
     const std::string &prefix,
     std::function<void(propico::SearchResponse)> callback) {
-    std::thread([this, prefix, alive = alive_, cb = std::move(callback)]() {
+    std::thread([stub = stub_, dispatcher = dispatcher_, prefix,
+                 alive = alive_, cb = std::move(callback)]() {
         propico::SearchRequest req;
         req.set_prefix(prefix);
         req.set_max_candidates(9);
@@ -28,10 +29,10 @@ void GrpcClient::searchAsync(
         ctx.set_deadline(std::chrono::system_clock::now() +
                          std::chrono::seconds(3));
 
-        grpc::Status status = stub_->Search(&ctx, req, &resp);
+        grpc::Status status = stub->Search(&ctx, req, &resp);
 
         if (status.ok() && alive->load(std::memory_order_relaxed)) {
-            dispatcher_->schedule(
+            dispatcher->schedule(
                 [cb = std::move(cb), resp = std::move(resp), alive]() {
                     if (alive->load(std::memory_order_relaxed)) {
                         cb(std::move(resp));
@@ -44,7 +45,7 @@ void GrpcClient::searchAsync(
 
 void GrpcClient::learnAsync(const std::string &candidate_id,
                              const std::string &prefix) {
-    std::thread([this, candidate_id, prefix]() {
+    std::thread([stub = stub_, candidate_id, prefix]() {
         propico::LearnRequest req;
         req.set_candidate_id(candidate_id);
         req.set_prefix(prefix);
@@ -54,7 +55,7 @@ void GrpcClient::learnAsync(const std::string &candidate_id,
         ctx.set_deadline(std::chrono::system_clock::now() +
                          std::chrono::seconds(3));
 
-        stub_->Learn(&ctx, req, &resp);
+        stub->Learn(&ctx, req, &resp);
         // 戻り値は無視
     }).detach();
 }
@@ -62,8 +63,8 @@ void GrpcClient::learnAsync(const std::string &candidate_id,
 void GrpcClient::syncAsync(
     int64_t last_sync_timestamp,
     std::function<void(propico::SyncResponse)> callback) {
-    std::thread([this, last_sync_timestamp, alive = alive_,
-                 cb = std::move(callback)]() {
+    std::thread([stub = stub_, dispatcher = dispatcher_, last_sync_timestamp,
+                 alive = alive_, cb = std::move(callback)]() {
         propico::SyncRequest req;
         req.set_last_sync_timestamp(last_sync_timestamp);
 
@@ -72,10 +73,10 @@ void GrpcClient::syncAsync(
         ctx.set_deadline(std::chrono::system_clock::now() +
                          std::chrono::seconds(5));
 
-        grpc::Status status = stub_->Sync(&ctx, req, &resp);
+        grpc::Status status = stub->Sync(&ctx, req, &resp);
 
         if (status.ok() && alive->load(std::memory_order_relaxed)) {
-            dispatcher_->schedule(
+            dispatcher->schedule(
                 [cb = std::move(cb), resp = std::move(resp), alive]() {
                     if (alive->load(std::memory_order_relaxed)) {
                         cb(std::move(resp));
