@@ -38,11 +38,11 @@ fcitx5-propico (本プラグイン)        propico (別プロセス)
 
 | Stage | 内容 | 状態 |
 |---|---|---|
-| 1 | Echo エンジン（fcitx5 登録・preedit・commit） | 🔲 未着手 |
-| 2 | ローマ字→ひらがな変換（ローカル） | 🔲 未着手 |
-| 3 | Space → gRPC Search + 候補ウィンドウ | 🔲 未着手 |
-| 4 | 候補選択 → commit + Learn RPC | 🔲 未着手 |
-| 5 | Sync RPC（複数端末同期） | 🔲 未着手 |
+| 1 | Echo エンジン（fcitx5 登録・preedit・commit） | ✅ 完了 |
+| 2 | ローマ字→ひらがな変換（ローカル） | ✅ 完了 |
+| 3 | Space → gRPC Search + 候補ウィンドウ | ✅ 完了 |
+| 4 | 候補選択 → commit + Learn RPC | ✅ 完了 |
+| 5 | Sync RPC（複数端末同期） | ✅ 完了 |
 
 ---
 
@@ -82,7 +82,7 @@ sudo cmake --install build
 インストール先:
 
 ```
-/usr/lib/x86_64-linux-gnu/fcitx5/libfcitx5-propico.so
+/usr/lib/x86_64-linux-gnu/fcitx5/fcitx5-propico.so
 /usr/share/fcitx5/addon/propico-addon.conf
 /usr/share/fcitx5/inputmethod/propico.conf
 ```
