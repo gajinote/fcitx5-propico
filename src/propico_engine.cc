@@ -86,8 +86,10 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
         }
         if (key.check(FcitxKey_Return) && !state->candidates.empty()) {
             auto cl = ic->inputPanel().candidateList();
-            int idx = (cl && cl->cursorIndex() >= 0) ? cl->cursorIndex() : 0;
-            commitCandidateAt(ic, *state, idx);
+            if (cl && cl->size() > 0) {
+                int idx = cl->cursorIndex() >= 0 ? cl->cursorIndex() : 0;
+                cl->candidate(idx).select(ic);
+            }
             event.filterAndAccept();
             return;
         }
@@ -116,7 +118,11 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
         if (key.isSimple()) {
             const char c = static_cast<char>(key.sym() & 0x7F);
             if (c >= '1' && c <= '9') {
-                commitCandidateAt(ic, *state, c - '1');
+                auto cl = ic->inputPanel().candidateList();
+                int localIdx = c - '1';
+                if (cl && localIdx < cl->size()) {
+                    cl->candidate(localIdx).select(ic);
+                }
                 event.filterAndAccept();
                 return;
             }
@@ -286,13 +292,6 @@ void PropicoEngine::clearCandidates(InputContext *ic, PropicoState &state) {
     ic->inputPanel().setCandidateList(nullptr);
     ic->updateUserInterface(UserInterfaceComponent::InputPanel);
     ic->updatePreedit();
-}
-
-void PropicoEngine::commitCandidateAt(InputContext *ic, PropicoState &state,
-                                       int idx) {
-    if (idx < 0 || idx >= static_cast<int>(state.candidates.size())) return;
-    onCandidateSelected(ic, state.candidates[idx].text,
-                        state.candidates[idx].id);
 }
 
 void PropicoEngine::triggerSync() {

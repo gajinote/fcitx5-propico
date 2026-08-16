@@ -54,7 +54,6 @@ private:
     void updatePreedit(InputContext *ic, PropicoState &state);
     void showCandidates(InputContext *ic, PropicoState &state);
     void clearCandidates(InputContext *ic, PropicoState &state);
-    void commitCandidateAt(InputContext *ic, PropicoState &state, int idx);
     void triggerSync();
 };
 
