@@ -1,7 +1,7 @@
-# fcitx5-pobox
+# fcitx5-propico
 
 Linux デスクトップ向け **fcitx5** 日本語入力プラグイン。  
-バックエンドに [pobox-neo](https://github.com/your-org/pobox-neo) を使用し、POBox の「軽量フロントエンド × サーバー型変換エンジン」思想を fcitx5 上で実現します。
+バックエンドに [propico](https://github.com/gajinote/propico) を使用し、propico の「軽量フロントエンド × サーバー型変換エンジン」思想を fcitx5 上で実現します。
 
 ---
 
@@ -10,21 +10,21 @@ Linux デスクトップ向け **fcitx5** 日本語入力プラグイン。
 | 項目 | 内容 |
 |---|---|
 | IMF | [fcitx5](https://github.com/fcitx/fcitx5) |
-| バックエンド | [pobox-neo](https://github.com/your-org/pobox-neo)（gRPC サーバー） |
+| バックエンド | [propico](https://github.com/gajinote/propico)（gRPC サーバー） |
 | 言語 | C++20 |
 | ビルド | CMake + extra-cmake-modules |
 
 ### 設計思想
 
 - **フロントエンド（本リポジトリ）**: キーイベント処理・ローマ字かな変換・preedit 表示・候補ウィンドウ
-- **バックエンド（pobox-neo）**: 辞書検索・スコアリング・学習永続化（SQLite）・複数端末同期
-- 両者の契約は `pobox.proto` のみ。将来 Android/macOS IME を作っても同じサーバーを使える
+- **バックエンド（propico）**: 辞書検索・スコアリング・学習永続化（SQLite）・複数端末同期
+- 両者の契約は `propico.proto` のみ。将来 Android/macOS IME を作っても同じサーバーを使える
 
 ```
 キーボード
     │
     ▼
-fcitx5-pobox (本プラグイン)        pobox-neo (別プロセス)
+fcitx5-propico (本プラグイン)        propico (別プロセス)
 ┌──────────────────────┐  gRPC    ┌────────────────────────┐
 │ ローマ字→かな変換    │ ───────▶ │ 辞書検索（前方一致）   │
 │ 候補ウィンドウ表示   │ ◀─────── │ 学習スコア（SQLite）   │
@@ -51,7 +51,7 @@ fcitx5-pobox (本プラグイン)        pobox-neo (別プロセス)
 ### 実行時
 
 - [fcitx5](https://github.com/fcitx/fcitx5) 5.x
-- [pobox-neo](https://github.com/your-org/pobox-neo) サーバーが `localhost:50051` で稼働していること（Stage 3 以降）
+- [propico](https://github.com/gajinote/propico) サーバーが `localhost:50051` で稼働していること（Stage 3 以降）
 
 ### ビルド時
 
@@ -72,8 +72,8 @@ sudo apt install -y \
 ## ビルド
 
 ```bash
-git clone https://github.com/your-org/fcitx5-pobox.git
-cd fcitx5-pobox
+git clone https://github.com/gajinote/fcitx5-propico.git
+cd fcitx5-propico
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 sudo cmake --install build
@@ -82,21 +82,21 @@ sudo cmake --install build
 インストール先:
 
 ```
-/usr/lib/x86_64-linux-gnu/fcitx5/libfcitx5-pobox.so
-/usr/share/fcitx5/addon/pobox-addon.conf
-/usr/share/fcitx5/inputmethod/pobox.conf
+/usr/lib/x86_64-linux-gnu/fcitx5/libfcitx5-propico.so
+/usr/share/fcitx5/addon/propico-addon.conf
+/usr/share/fcitx5/inputmethod/propico.conf
 ```
 
 ---
 
 ## 使い方
 
-### 1. pobox-neo サーバーを起動
+### 1. propico サーバーを起動
 
 ```bash
-# pobox-neo リポジトリをビルド済みの前提
-./pobox-neo/build/pobox_server dict/default.tsv ~/.local/share/pobox/history.db
-# → PoBox server listening on 0.0.0.0:50051
+# propico リポジトリをビルド済みの前提
+./propico/build/propico_server dict/default.tsv ~/.local/share/propico/history.db
+# → propico server listening on 0.0.0.0:50051
 ```
 
 ### 2. fcitx5 を再起動
@@ -105,16 +105,16 @@ sudo cmake --install build
 fcitx5 -r
 ```
 
-### 3. 入力メソッドに "PoBox Neo" を追加
+### 3. 入力メソッドに "propico" を追加
 
-fcitx5 設定ツール → 入力メソッド → 追加 → "PoBox Neo"
+fcitx5 設定ツール → 入力メソッド → 追加 → "propico"
 
 ### 4. 入力操作
 
 | キー | 動作 |
 |---|---|
 | 英数字 | ローマ字入力（preedit に変換されたひらがな表示） |
-| `Space` | pobox-neo に検索を投げ、候補ウィンドウを開く |
+| `Space` | propico に検索を投げ、候補ウィンドウを開く |
 | `1`〜`9` | 候補を選択してコミット |
 | `Tab` / `↓↑` | 候補フォーカス移動 |
 | `Enter` | preedit をそのままコミット |
@@ -137,13 +137,13 @@ fcitx5 設定ツール → 入力メソッド → 追加 → "PoBox Neo"
 
 ## 関連リポジトリ
 
-- [pobox-neo](https://github.com/your-org/pobox-neo) — 変換エンジン・辞書・学習・同期サーバー（proto 正本）
+- [propico](https://github.com/gajinote/propico) — 変換エンジン・辞書・学習・同期サーバー（proto 正本）
 
 ---
 
 ## 参考
 
-- POBox 原典: 増井俊之, "POBox: A Pen-Based Interface Using Gesture Prediction", UIST 1999
+- propico 原典: 増井俊之, "POBox: A Pen-Based Interface Using Gesture Prediction", UIST 1999
 - [fcitx5 開発ドキュメント](https://github.com/fcitx/fcitx5)
 - [fcitx5-chinese-addons](https://github.com/fcitx/fcitx5-chinese-addons) — プラグイン実装の参考例
 
