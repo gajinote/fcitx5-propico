@@ -56,8 +56,6 @@ private:
     void clearCandidates(InputContext *ic, PropicoState &state);
     void commitCandidateAt(InputContext *ic, PropicoState &state, int idx);
     void triggerSync();
-    void loadSyncTimestamp();
-    void saveSyncTimestamp() const;
 };
 
 class PropicoEngineFactory : public AddonFactory {

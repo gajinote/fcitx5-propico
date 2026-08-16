@@ -7,18 +7,10 @@
 #include <fcitx/inputpanel.h>
 #include <fcitx/text.h>
 #include <fcitx/userinterface.h>
-#include <cstdlib>
-#include <fstream>
 
 namespace fcitx {
 
 namespace {
-
-std::string syncTimestampPath() {
-    const char *home = std::getenv("HOME");
-    if (!home) return "";
-    return std::string(home) + "/.config/fcitx5/propico_sync_ts";
-}
 
 void popLastUtf8Char(std::string &s) {
     if (s.empty()) return;
@@ -54,7 +46,6 @@ PropicoEngine::PropicoEngine(Instance *instance)
                                                       &state_factory_);
     grpc_client_ = std::make_unique<GrpcClient>(
         "localhost:50051", &instance_->eventDispatcher());
-    loadSyncTimestamp();
     triggerSync();
 }
 
@@ -304,20 +295,6 @@ void PropicoEngine::commitCandidateAt(InputContext *ic, PropicoState &state,
                         state.candidates[idx].id);
 }
 
-void PropicoEngine::loadSyncTimestamp() {
-    const auto path = syncTimestampPath();
-    if (path.empty()) return;
-    std::ifstream f(path);
-    if (f) f >> sync_timestamp_;
-}
-
-void PropicoEngine::saveSyncTimestamp() const {
-    const auto path = syncTimestampPath();
-    if (path.empty()) return;
-    std::ofstream f(path);
-    if (f) f << sync_timestamp_;
-}
-
 void PropicoEngine::triggerSync() {
     auto alive = alive_;
     grpc_client_->syncAsync(
@@ -325,7 +302,6 @@ void PropicoEngine::triggerSync() {
         [this, alive](propico::SyncResponse resp) {
             if (!alive->load(std::memory_order_relaxed)) return;
             sync_timestamp_ = resp.server_timestamp();
-            saveSyncTimestamp();
         });
 }
 
