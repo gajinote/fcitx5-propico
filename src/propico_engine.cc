@@ -203,9 +203,10 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
 
                 std::string prefix = state->reading;
                 auto alive = alive_;
+                uint64_t generation = ++state->search_generation;
                 grpc_client_->searchAsync(
                     prefix,
-                    [this, alive, icRef = ic->watch()](
+                    [this, alive, icRef = ic->watch(), generation](
                         propico::SearchResponse resp) {
                         // GrpcClient の dispatcher_->schedule により
                         // すでに fcitx5 main スレッド上で呼ばれる
@@ -214,6 +215,8 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
                         auto *ic2 = icRef.get();
                         auto *st = ic2->propertyFor(&state_factory_);
                         if (st->mode != PropicoState::Mode::Selecting) return;
+                        // 検索中に別の検索が発行されていたら破棄する
+                        if (st->search_generation != generation) return;
                         st->candidates.clear();
                         for (const auto &c : resp.candidates()) {
                             st->candidates.push_back(

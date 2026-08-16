@@ -27,6 +27,7 @@ struct PropicoState : public InputContextProperty {
     std::string reading;
     RomajiKana romaji_kana;
     std::vector<CandidateData> candidates;
+    uint64_t search_generation = 0;
 };
 
 class PropicoEngine : public InputMethodEngineV3 {
