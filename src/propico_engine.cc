@@ -147,8 +147,11 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
         if (!state->reading.empty() || !state->romaji_kana.pending().empty()) {
             std::string commit = state->reading;
             const auto &p = state->romaji_kana.pending();
-            commit += (p == "n") ? "ん" : p;
-            ic->commitString(commit);
+            if (p == "n") commit += "ん";
+            // "n" 以外の未確定ローマ字は不完全なため破棄する（生ASCIIをコミットしない）
+            if (!commit.empty()) {
+                ic->commitString(commit);
+            }
             state->reading.clear();
             state->romaji_kana.reset();
             state->mode = PropicoState::Mode::Idle;
@@ -195,6 +198,7 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
         if (state->mode == PropicoState::Mode::Composing) {
             const auto &p = state->romaji_kana.pending();
             if (p == "n") state->reading += "ん";
+            // "n" 以外の未確定ローマ字は不完全なため破棄する
             state->romaji_kana.reset();
 
             if (!state->reading.empty()) {
@@ -230,6 +234,12 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
                             updatePreedit(ic2, *st);
                         }
                     });
+                event.filterAndAccept();
+            } else {
+                // 未確定ローマ字を破棄しただけの場合も Space を消費し、
+                // 半角スペースがアプリ側に漏れるのを防ぐ
+                state->mode = PropicoState::Mode::Idle;
+                updatePreedit(ic, *state);
                 event.filterAndAccept();
             }
         }
