@@ -130,8 +130,8 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
     if (key.check(FcitxKey_space)) {
       auto cl = ic->inputPanel().candidateList();
       if (cl) {
-        if (auto *p = cl->toPageable(); p && p->hasNext()) {
-          p->next();
+        if (auto *cur = cl->toCursorMovable()) {
+          cur->nextCandidate();
           ic->updateUserInterface(UserInterfaceComponent::InputPanel);
         }
       }
@@ -291,6 +291,8 @@ void PropicoEngine::showCandidates(InputContext *ic, PropicoState &state) {
   auto candidateList = std::make_unique<CommonCandidateList>();
   candidateList->setLayoutHint(CandidateLayoutHint::Vertical);
   candidateList->setPageSize(9);
+  candidateList->setLabels(
+      {"1.", "2.", "3.", "4.", "5.", "6.", "7.", "8.", "9."});
   for (const auto &c : state.candidates) {
     candidateList->append<PropicoCandidateWord>(this, c.text, c.id);
   }
