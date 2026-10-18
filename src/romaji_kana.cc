@@ -65,6 +65,8 @@ constexpr std::pair<const char *, const char *> kRules[] = {
   {"ltu","っ"},{"ltsu","っ"},
   // ん（直接入力）
   {"n'","ん"},
+  // 記号
+  {".","。"},{",","、"},
 };
 
 } // namespace

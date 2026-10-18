@@ -22,7 +22,8 @@ void GrpcClient::searchAsync(
                alive = alive_, cb = std::move(callback)]() {
     propico::SearchRequest req;
     req.set_prefix(prefix);
-    req.set_max_candidates(9);
+    // 候補送りで下位候補を表示できるよう、1ページ分(9件)より多めに取得する
+    req.set_max_candidates(50);
 
     propico::SearchResponse resp;
     grpc::ClientContext ctx;
