@@ -1,5 +1,6 @@
 #include "propico_engine.h"
 #include "grpc_client.h"
+#include <fcitx-utils/key.h>
 #include <fcitx-utils/keysymgen.h>
 #include <fcitx-utils/textformatflags.h>
 #include <fcitx/candidatelist.h>
@@ -17,6 +18,32 @@ void popLastUtf8Char(std::string &s) {
   size_t i = s.size();
   while (i > 0 && (static_cast<unsigned char>(s[--i]) & 0xC0) == 0x80) {}
   s.erase(i);
+}
+
+size_t utf8CharByteLen(unsigned char lead) {
+  if ((lead & 0x80) == 0) return 1;
+  if ((lead & 0xE0) == 0xC0) return 2;
+  if ((lead & 0xF0) == 0xE0) return 3;
+  if ((lead & 0xF8) == 0xF0) return 4;
+  return 1;
+}
+
+size_t utf8Length(const std::string &s) {
+  size_t count = 0;
+  for (size_t i = 0; i < s.size();
+       i += utf8CharByteLen(static_cast<unsigned char>(s[i]))) {
+    ++count;
+  }
+  return count;
+}
+
+// 先頭 n 文字（UTF-8）分のバイト長を返す
+size_t utf8PrefixByteLen(const std::string &s, size_t n) {
+  size_t i = 0;
+  for (size_t count = 0; count < n && i < s.size(); ++count) {
+    i += utf8CharByteLen(static_cast<unsigned char>(s[i]));
+  }
+  return i;
 }
 
 class PropicoCandidateWord : public CandidateWord {
@@ -89,6 +116,20 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
       if (cl && cl->size() > 0) {
         int idx = cl->cursorIndex() >= 0 ? cl->cursorIndex() : 0;
         cl->candidate(idx).select(ic);
+      }
+      event.filterAndAccept();
+      return;
+    }
+    if (key.check(FcitxKey_Left, KeyState::Shift)) {
+      if (state->match_len > 1) {
+        adjustMatchRange(ic, *state, state->match_len - 1);
+      }
+      event.filterAndAccept();
+      return;
+    }
+    if (key.check(FcitxKey_Right, KeyState::Shift)) {
+      if (state->match_len < utf8Length(state->reading)) {
+        adjustMatchRange(ic, *state, state->match_len + 1);
       }
       event.filterAndAccept();
       return;
@@ -203,37 +244,9 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
 
       if (!state->reading.empty()) {
         state->mode = PropicoState::Mode::Selecting;
+        state->match_len = utf8Length(state->reading);
         updatePreedit(ic, *state);
-
-        std::string prefix = state->reading;
-        auto alive = alive_;
-        uint64_t generation = ++state->search_generation;
-        grpc_client_->searchAsync(
-            prefix,
-            [this, alive, icRef = ic->watch(), generation](
-                propico::SearchResponse resp) {
-              // GrpcClient の dispatcher_->schedule により
-              // すでに fcitx5 main スレッド上で呼ばれる
-              if (!alive->load(std::memory_order_relaxed)) return;
-              if (!icRef.isValid()) return;
-              auto *ic2 = icRef.get();
-              auto *st = ic2->propertyFor(&state_factory_);
-              if (st->mode != PropicoState::Mode::Selecting) return;
-              // 検索中に別の検索が発行されていたら破棄する
-              if (st->search_generation != generation) return;
-              st->candidates.clear();
-              for (const auto &c : resp.candidates()) {
-                st->candidates.push_back(
-                    {c.id(), c.text(), c.reading()});
-              }
-              if (!st->candidates.empty()) {
-                showCandidates(ic2, *st);
-              } else {
-                // 候補なしは COMPOSING に戻す
-                st->mode = PropicoState::Mode::Composing;
-                updatePreedit(ic2, *st);
-              }
-            });
+        searchCandidates(ic, *state, state->reading);
         event.filterAndAccept();
       } else {
         // 未確定ローマ字を破棄しただけの場合も Space を消費し、
@@ -257,15 +270,86 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
   }
 }
 
+void PropicoEngine::searchCandidates(InputContext *ic, PropicoState &state,
+                                     const std::string &prefix) {
+  auto alive = alive_;
+  uint64_t generation = ++state.search_generation;
+  grpc_client_->searchAsync(
+      prefix,
+      [this, alive, icRef = ic->watch(), generation](
+          propico::SearchResponse resp) {
+        // GrpcClient の dispatcher_->schedule により
+        // すでに fcitx5 main スレッド上で呼ばれる
+        if (!alive->load(std::memory_order_relaxed)) return;
+        if (!icRef.isValid()) return;
+        auto *ic2 = icRef.get();
+        auto *st = ic2->propertyFor(&state_factory_);
+        if (st->mode != PropicoState::Mode::Selecting) return;
+        // 検索中に別の検索が発行されていたら破棄する
+        if (st->search_generation != generation) return;
+        st->candidates.clear();
+        for (const auto &c : resp.candidates()) {
+          st->candidates.push_back({c.id(), c.text(), c.reading()});
+        }
+        if (!st->candidates.empty()) {
+          showCandidates(ic2, *st);
+        } else {
+          // 候補なしでも SELECTING のままにし、Shift+←→ で範囲を
+          // 狭めて再検索できるようにする（抜けるのは Escape に統一）
+          clearCandidates(ic2, *st);
+        }
+      });
+}
+
+void PropicoEngine::adjustMatchRange(InputContext *ic, PropicoState &state,
+                                     size_t newMatchLen) {
+  size_t oldMatchLen = state.match_len;
+  state.match_len = newMatchLen;
+  updatePreedit(ic, state);
+
+  std::string prefix = state.reading.substr(
+      0, utf8PrefixByteLen(state.reading, newMatchLen));
+  auto alive = alive_;
+  uint64_t generation = ++state.search_generation;
+  grpc_client_->searchAsync(
+      prefix,
+      [this, alive, icRef = ic->watch(), generation, oldMatchLen](
+          propico::SearchResponse resp) {
+        if (!alive->load(std::memory_order_relaxed)) return;
+        if (!icRef.isValid()) return;
+        auto *ic2 = icRef.get();
+        auto *st = ic2->propertyFor(&state_factory_);
+        if (st->mode != PropicoState::Mode::Selecting) return;
+        if (st->search_generation != generation) return;
+        if (resp.candidates().empty()) {
+          // この範囲には候補がないので、変更前の範囲・候補のまま戻す
+          st->match_len = oldMatchLen;
+          updatePreedit(ic2, *st);
+          return;
+        }
+        st->candidates.clear();
+        for (const auto &c : resp.candidates()) {
+          st->candidates.push_back({c.id(), c.text(), c.reading()});
+        }
+        showCandidates(ic2, *st);
+      });
+}
+
 void PropicoEngine::onCandidateSelected(InputContext *ic,
                                          const std::string &text,
                                          const std::string &id) {
   auto *state = ic->propertyFor(&state_factory_);
   ic->commitString(text);
-  grpc_client_->learnAsync(id, state->reading);
-  state->reading.clear();
+  size_t matchBytes = utf8PrefixByteLen(state->reading, state->match_len);
+  std::string matchedReading = state->reading.substr(0, matchBytes);
+  // 前方一致の範囲を縮めていた場合、残りの読みは継続入力として残す
+  std::string remainder = state->reading.substr(matchBytes);
+  grpc_client_->learnAsync(id, matchedReading);
+  state->reading = remainder;
   state->romaji_kana.reset();
-  state->mode = PropicoState::Mode::Idle;
+  state->match_len = 0;
+  state->mode = remainder.empty() ? PropicoState::Mode::Idle
+                                  : PropicoState::Mode::Composing;
   clearCandidates(ic, *state);
   updatePreedit(ic, *state);
   triggerSync();
@@ -274,7 +358,18 @@ void PropicoEngine::onCandidateSelected(InputContext *ic,
 void PropicoEngine::updatePreedit(InputContext *ic, PropicoState &state) {
   Text preedit;
   if (!state.reading.empty()) {
-    preedit.append(state.reading, TextFormatFlag::Underline);
+    if (state.mode == PropicoState::Mode::Selecting &&
+        state.match_len < utf8Length(state.reading)) {
+      size_t matchBytes = utf8PrefixByteLen(state.reading, state.match_len);
+      std::string matched = state.reading.substr(0, matchBytes);
+      std::string rest = state.reading.substr(matchBytes);
+      // 前方一致で確定する範囲を強調表示し、残りは通常の下線のみにする
+      preedit.append(matched, TextFormatFlags{TextFormatFlag::HighLight,
+                                               TextFormatFlag::Underline});
+      preedit.append(rest, TextFormatFlag::Underline);
+    } else {
+      preedit.append(state.reading, TextFormatFlag::Underline);
+    }
   }
   if (!state.romaji_kana.pending().empty()) {
     preedit.append(state.romaji_kana.pending());

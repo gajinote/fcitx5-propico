@@ -28,6 +28,8 @@ struct PropicoState : public InputContextProperty {
   RomajiKana romaji_kana;
   std::vector<CandidateData> candidates;
   uint64_t search_generation = 0;
+  // 前方一致検索に使う reading の先頭からの文字数（UTF-8文字単位）
+  size_t match_len = 0;
 };
 
 class PropicoEngine : public InputMethodEngineV3 {
@@ -53,6 +55,10 @@ private:
   int64_t sync_timestamp_ = 0;
 
   void updatePreedit(InputContext *ic, PropicoState &state);
+  void searchCandidates(InputContext *ic, PropicoState &state,
+                        const std::string &prefix);
+  void adjustMatchRange(InputContext *ic, PropicoState &state,
+                       size_t newMatchLen);
   void showCandidates(InputContext *ic, PropicoState &state);
   void clearCandidates(InputContext *ic, PropicoState &state);
   void triggerSync();
