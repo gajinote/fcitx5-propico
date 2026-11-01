@@ -4,3 +4,4 @@ build/
 *.a
 CMakeFiles/
 compile_commands.json
+.claude/
