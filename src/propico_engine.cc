@@ -111,12 +111,25 @@ void PropicoEngine::keyEvent(const InputMethodEntry &, KeyEvent &event) {
       event.filterAndAccept();
       return;
     }
-    if (key.check(FcitxKey_Return) && !state->candidates.empty()) {
+    if (key.check(FcitxKey_Return)) {
       auto cl = ic->inputPanel().candidateList();
-      if (cl && cl->size() > 0) {
+      if (!state->candidates.empty() && cl && cl->size() > 0) {
         int idx = cl->cursorIndex() >= 0 ? cl->cursorIndex() : 0;
         cl->candidate(idx).select(ic);
+      } else {
+        // 候補なし: 一致範囲の読みをそのまま確定する（学習はしない）
+        onCandidateSelected(ic, state->reading.substr(
+            0, utf8PrefixByteLen(state->reading, state->match_len)), "");
       }
+      event.filterAndAccept();
+      return;
+    }
+    if (key.check(FcitxKey_BackSpace) && state->candidates.empty()) {
+      // 候補なし: 変換をやめて読みの編集に戻る
+      state->mode = PropicoState::Mode::Composing;
+      state->match_len = 0;
+      clearCandidates(ic, *state);
+      updatePreedit(ic, *state);
       event.filterAndAccept();
       return;
     }
@@ -322,9 +335,12 @@ void PropicoEngine::adjustMatchRange(InputContext *ic, PropicoState &state,
         if (st->mode != PropicoState::Mode::Selecting) return;
         if (st->search_generation != generation) return;
         if (resp.candidates().empty()) {
-          // この範囲には候補がないので、変更前の範囲・候補のまま戻す
-          st->match_len = oldMatchLen;
-          updatePreedit(ic2, *st);
+          if (!st->candidates.empty()) {
+            // この範囲には候補がないので、変更前の範囲・候補のまま戻す
+            st->match_len = oldMatchLen;
+            updatePreedit(ic2, *st);
+          }
+          // 元々候補がない場合は、ヒットする範囲を探せるよう範囲を維持する
           return;
         }
         st->candidates.clear();
@@ -344,7 +360,7 @@ void PropicoEngine::onCandidateSelected(InputContext *ic,
   std::string matchedReading = state->reading.substr(0, matchBytes);
   // 前方一致の範囲を縮めていた場合、残りの読みは継続入力として残す
   std::string remainder = state->reading.substr(matchBytes);
-  grpc_client_->learnAsync(id, matchedReading);
+  if (!id.empty()) grpc_client_->learnAsync(id, matchedReading);
   state->reading = remainder;
   state->romaji_kana.reset();
   state->match_len = 0;
